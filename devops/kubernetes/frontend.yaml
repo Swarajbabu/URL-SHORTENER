@@ -1,0 +1,48 @@
+---
+# ─── Frontend Deployment ─────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quicklink-frontend
+  namespace: quicklink
+  labels:
+    app: quicklink-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quicklink-frontend
+  template:
+    metadata:
+      labels:
+        app: quicklink-frontend
+    spec:
+      containers:
+        - name: frontend
+          # Replace with your actual ECR image URI
+          image: 022187637794.dkr.ecr.us-east-1.amazonaws.com/quicklink-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+# ─── Frontend Service ────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: quicklink-frontend
+  namespace: quicklink
+spec:
+  selector:
+    app: quicklink-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer

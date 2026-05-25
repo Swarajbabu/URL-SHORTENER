@@ -21,7 +21,7 @@ const UrlForm = () => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const shortDomain = import.meta.env.VITE_SHORT_DOMAIN || 'http://localhost:5000';
       
-      const res = await axios.post(`${apiUrl}/api/url/shorten`, { originalUrl: url });
+      const res = await axios.post('/api/url/shorten', { originalUrl: url });
       setShortUrl(`${shortDomain}/${res.data.shortId}`);
       setUrl('');
     } catch (err) {

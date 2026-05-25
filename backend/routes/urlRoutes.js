@@ -1,6 +1,7 @@
 import express from 'express';
 import { nanoid } from 'nanoid';
 import Url from '../models/Url.js';
+import { urlsShortenedTotal } from '../server.js';
 
 const router = express.Router();
 
@@ -40,6 +41,7 @@ router.post('/shorten', async (req, res) => {
     });
 
     await url.save();
+    urlsShortenedTotal.inc(); // Track metric
     res.json(url);
   } catch (err) {
     console.error(err);

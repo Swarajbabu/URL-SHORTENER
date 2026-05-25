@@ -1,0 +1,112 @@
+---
+# ─── Backend Deployment ──────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quicklink-backend
+  namespace: quicklink
+  labels:
+    app: quicklink-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quicklink-backend
+  template:
+    metadata:
+      labels:
+        app: quicklink-backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "5000"
+    spec:
+      containers:
+        - name: backend
+          # Replace with your actual ECR image URI after pushing
+          image: 022187637794.dkr.ecr.us-east-1.amazonaws.com/quicklink-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: quicklink-config
+                  key: PORT
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: quicklink-config
+                  key: NODE_ENV
+            - name: BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: quicklink-config
+                  key: BASE_URL
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: quicklink-secrets
+                  key: MONGO_URI
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+---
+# ─── Backend Service ─────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: quicklink-backend
+  namespace: quicklink
+spec:
+  selector:
+    app: quicklink-backend
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+  type: ClusterIP
+---
+# ─── HorizontalPodAutoscaler ─────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: quicklink-backend-hpa
+  namespace: quicklink
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: quicklink-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

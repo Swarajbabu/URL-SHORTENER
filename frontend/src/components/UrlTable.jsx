@@ -12,7 +12,7 @@ const UrlTable = () => {
 
   const fetchUrls = async () => {
     try {
-      const res = await axios.get(`${apiUrl}/api/url/history`);
+      const res = await axios.get('/api/url/history');
       setUrls(res.data);
     } catch (err) {
       console.error('Error fetching URLs', err);
@@ -27,7 +27,7 @@ const UrlTable = () => {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${apiUrl}/api/url/${id}`);
+      await axios.delete(`/api/url/${id}`);
       setUrls(urls.filter((url) => url._id !== id));
     } catch (err) {
       console.error('Error deleting URL', err);

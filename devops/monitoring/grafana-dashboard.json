@@ -1,0 +1,105 @@
+{
+  "title": "QuickLink Dashboard",
+  "uid": "quicklink-main",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Request Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [{
+        "expr": "rate(http_requests_total[1m])",
+        "legendFormat": "{{method}} {{route}} {{status}}"
+      }]
+    },
+    {
+      "id": 2,
+      "title": "Error Rate (5xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [{
+        "expr": "rate(http_requests_total{status=~\"5..\"}[5m])",
+        "legendFormat": "Error Rate"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Response Time P95 (ms)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m]))",
+        "legendFormat": "P95 Latency"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 200 },
+              { "color": "red", "value": 500 }
+            ]
+          },
+          "unit": "ms",
+          "max": 1000
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Total URLs Shortened",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 8 },
+      "targets": [{
+        "expr": "urls_shortened_total",
+        "legendFormat": "Total URLs"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Active HTTP Connections",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "targets": [{
+        "expr": "nodejs_active_handles_total",
+        "legendFormat": "Active Connections"
+      }]
+    },
+    {
+      "id": 6,
+      "title": "Node.js Memory Usage (MB)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [{
+        "expr": "nodejs_heap_size_used_bytes / 1024 / 1024",
+        "legendFormat": "Heap Used (MB)"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "CPU Usage %",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [{
+        "expr": "rate(process_cpu_seconds_total[1m]) * 100",
+        "legendFormat": "CPU %"
+      }]
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" }
+}

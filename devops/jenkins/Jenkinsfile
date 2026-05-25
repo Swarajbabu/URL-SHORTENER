@@ -1,0 +1,174 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION          = 'us-east-1'
+        AWS_ACCOUNT_ID      = credentials('aws-account-id')
+        ECR_REGISTRY        = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        BACKEND_IMAGE       = "${ECR_REGISTRY}/quicklink-backend"
+        FRONTEND_IMAGE      = "${ECR_REGISTRY}/quicklink-frontend"
+        EKS_CLUSTER_NAME    = 'quicklink-cluster'
+        IMAGE_TAG           = "${BUILD_NUMBER}-${GIT_COMMIT[0..6]}"
+        // GitHub credential ID configured in Jenkins
+        GITHUB_CREDENTIALS  = 'github-token'
+    }
+
+    stages {
+        // ─── Stage 1: Checkout ─────────────────────────────────
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    credentialsId: "${GITHUB_CREDENTIALS}",
+                    url: 'https://github.com/Swarajbabu/URL-SHORTENER.git'
+                echo "✅ Checked out branch: ${GIT_BRANCH} @ ${GIT_COMMIT}"
+            }
+        }
+
+        // ─── Stage 2: Install & Test Backend ───────────────────
+        stage('Install & Test Backend') {
+            steps {
+                dir('backend') {
+                    sh 'npm ci'
+                    // Add your tests here, e.g.: sh 'npm test'
+                    echo "✅ Backend dependencies installed."
+                }
+            }
+        }
+
+        // ─── Stage 3: Install & Build Frontend ─────────────────
+        stage('Install & Build Frontend') {
+            steps {
+                dir('frontend') {
+                    sh 'npm ci'
+                    sh "VITE_API_URL=${ECR_REGISTRY} npm run build"
+                    echo "✅ Frontend built successfully."
+                }
+            }
+        }
+
+        // ─── Stage 4: Login to AWS ECR ─────────────────────────
+        stage('Login to ECR') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-credentials',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh """
+                        aws ecr get-login-password --region ${AWS_REGION} | \\
+                        docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                    """
+                    echo "✅ Logged in to ECR."
+                }
+            }
+        }
+
+        // ─── Stage 5: Build Docker Images ──────────────────────
+        stage('Build Docker Images') {
+            parallel {
+                stage('Build Backend Image') {
+                    steps {
+                        sh """
+                            docker build \\
+                                -f devops/docker/Dockerfile.backend \\
+                                -t ${BACKEND_IMAGE}:${IMAGE_TAG} \\
+                                -t ${BACKEND_IMAGE}:latest \\
+                                ./backend
+                        """
+                        echo "✅ Backend Docker image built."
+                    }
+                }
+                stage('Build Frontend Image') {
+                    steps {
+                        sh """
+                            docker build \\
+                                -f devops/docker/Dockerfile.frontend \\
+                                --build-arg VITE_API_URL=https://api.quicklink.yourdomain.com \\
+                                --build-arg VITE_SHORT_DOMAIN=https://api.quicklink.yourdomain.com \\
+                                -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \\
+                                -t ${FRONTEND_IMAGE}:latest \\
+                                ./frontend
+                        """
+                        echo "✅ Frontend Docker image built."
+                    }
+                }
+            }
+        }
+
+        // ─── Stage 6: Push Images to ECR ───────────────────────
+        stage('Push Images to ECR') {
+            parallel {
+                stage('Push Backend') {
+                    steps {
+                        sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
+                        sh "docker push ${BACKEND_IMAGE}:latest"
+                        echo "✅ Backend image pushed to ECR."
+                    }
+                }
+                stage('Push Frontend') {
+                    steps {
+                        sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                        sh "docker push ${FRONTEND_IMAGE}:latest"
+                        echo "✅ Frontend image pushed to ECR."
+                    }
+                }
+            }
+        }
+
+        // ─── Stage 7: Deploy to Kubernetes (EKS) ───────────────
+        stage('Deploy to EKS') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-credentials',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh """
+                        # Update kubeconfig for EKS
+                        aws eks update-kubeconfig --region ${AWS_REGION} --name ${EKS_CLUSTER_NAME}
+
+                        # Apply all Kubernetes manifests
+                        kubectl apply -f devops/kubernetes/namespace.yaml
+                        kubectl apply -f devops/kubernetes/configmap.yaml
+                        kubectl apply -f devops/kubernetes/secret.yaml
+                        kubectl apply -f devops/kubernetes/mongodb.yaml
+                        kubectl apply -f devops/kubernetes/backend.yaml
+                        kubectl apply -f devops/kubernetes/frontend.yaml
+                        kubectl apply -f devops/kubernetes/ingress.yaml
+
+                        # Update image tags for this build
+                        kubectl set image deployment/quicklink-backend \\
+                            backend=${BACKEND_IMAGE}:${IMAGE_TAG} \\
+                            -n quicklink
+
+                        kubectl set image deployment/quicklink-frontend \\
+                            frontend=${FRONTEND_IMAGE}:${IMAGE_TAG} \\
+                            -n quicklink
+
+                        # Wait for rollout to complete
+                        kubectl rollout status deployment/quicklink-backend -n quicklink --timeout=120s
+                        kubectl rollout status deployment/quicklink-frontend -n quicklink --timeout=120s
+                    """
+                    echo "✅ Deployed to EKS successfully."
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "🚀 Pipeline completed successfully! Build #${BUILD_NUMBER} deployed."
+        }
+        failure {
+            echo "❌ Pipeline FAILED at stage. Check logs above."
+        }
+        always {
+            // Clean up Docker images to save disk space
+            sh "docker image prune -f || true"
+        }
+    }
+}

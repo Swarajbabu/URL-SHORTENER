@@ -1,0 +1,71 @@
+version: '3.9'
+name: quicklink
+services:
+  # ─── MongoDB ────────────────────────────────────────────────
+  mongo:
+    image: mongo:7.0
+    container_name: quicklink-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: quicklink
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - quicklink-net
+    ports:
+      - "27018:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend (Node.js/Express) ──────────────────────────────
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: ../devops/docker/Dockerfile.backend
+    container_name: quicklink-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/quicklink
+      BASE_URL: http://localhost:5000
+      NODE_ENV: production
+    ports:
+      - "5000:5000"
+    networks:
+      - quicklink-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ─── Frontend (React/Vite → Nginx) ─────────────────────────
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: ../devops/docker/Dockerfile.frontend
+      args:
+        VITE_API_URL: http://localhost:5000
+        VITE_SHORT_DOMAIN: http://localhost:5000
+    container_name: quicklink-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - quicklink-net
+
+volumes:
+  mongo_data:
+    driver: local
+
+networks:
+  quicklink-net:
+    driver: bridge
