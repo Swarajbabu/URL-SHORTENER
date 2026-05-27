@@ -283,7 +283,7 @@ The complete build-to-deploy lifecycle is codified in the [`Jenkinsfile`](./Jenk
                                                    └─────────────────────┘
 ```
 
-![QuickLink Architecture](docs/architecture-diagram-main1.png)
+![QuickLink Architecture](docs/architecture-diagram-main1.png.png)
 **Pipeline Stages at a Glance:**
 
 | # | Stage | Action | Output |
