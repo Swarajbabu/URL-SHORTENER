@@ -332,6 +332,8 @@ The Node.js backend is instrumented with `prom-client` and exposes the following
 
 ### Accessing Grafana Dashboards
 
+![QuickLink Architecture](docs/dashboard.png)
+
 **Option A — Kubernetes Port-Forward (Secure, Recommended for Local Review)**
 
 ```bash
