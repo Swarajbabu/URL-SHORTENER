@@ -97,7 +97,7 @@ Frontend Assets    Node.js/Express Backend Pod (Port 5000)
 
 ### Architecture Diagram
 
-![QuickLink Architecture](https://drive.google.com/uc?export=view&id=1ueeeTkQJzx8WBHC1fFPUietrVeboli50)
+![QuickLink Architecture](docs/architecture-diagram-main.png)
 ---
 
 ## 🗂️ Project Structure
@@ -283,6 +283,7 @@ The complete build-to-deploy lifecycle is codified in the [`Jenkinsfile`](./Jenk
                                                    └─────────────────────┘
 ```
 
+![QuickLink Architecture](docs/architecture-diagram-main1.png)
 **Pipeline Stages at a Glance:**
 
 | # | Stage | Action | Output |
