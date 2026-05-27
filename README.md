@@ -97,9 +97,7 @@ Frontend Assets    Node.js/Express Backend Pod (Port 5000)
 
 ### Architecture Diagram
 
-![QuickLink System Architecture](./docs/architecture-diagram.png)
-
-
+![QuickLink Architecture](https://drive.google.com/uc?export=view&id=1ueeeTkQJzx8WBHC1fFPUietrVeboli50)
 ---
 
 ## 🗂️ Project Structure
